@@ -56,7 +56,8 @@ Claude runs inside a Docker Desktop AI Sandbox — a lightweight microVM managed
 | License | Open source | Open source (CNCF) | Docker Desktop license |
 | Security model | `--privileged` + firewall | VM boundary + firewall | VM boundary + proxy |
 | Headless flag | `--dangerously-skip-permissions` | `--allowedTools` | `--dangerously-skip-permissions` |
-| Allowed domains | 21 (individual) | 18 (individual) | 10 (wildcard patterns) |
+| Git worktrees | Yes (auto-detected) | Yes (auto-detected) | Yes (auto-detected) |
+| Allowed domains | 21 (individual) | 18 (individual) | 14 (wildcard patterns) |
 
 ## Trade-offs
 

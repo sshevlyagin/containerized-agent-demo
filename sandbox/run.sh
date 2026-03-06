@@ -53,6 +53,19 @@ if docker sandbox ls 2>/dev/null | grep -q "$SANDBOX_NAME"; then
   fi
 fi
 
+# --- Detect git worktree ---
+# If .git is a file (worktree), resolve the common git dir and mount it read-only
+EXTRA_MOUNTS=()
+if [ -f "$PROJECT_DIR/.git" ]; then
+  GIT_DIR=$(sed 's/^gitdir: //' "$PROJECT_DIR/.git")
+  GIT_COMMON_DIR=$(cd "$GIT_DIR" && git rev-parse --git-common-dir 2>/dev/null) || true
+  if [ -n "$GIT_COMMON_DIR" ] && [ -d "$GIT_COMMON_DIR" ]; then
+    GIT_COMMON_DIR=$(cd "$GIT_DIR" && cd "$GIT_COMMON_DIR" && pwd)
+    echo "Detected git worktree, mounting $GIT_COMMON_DIR (read-only)"
+    EXTRA_MOUNTS+=("$GIT_COMMON_DIR:ro")
+  fi
+fi
+
 # --- Launch new sandbox ---
 
 echo ""
@@ -68,4 +81,4 @@ echo ""
 docker sandbox run \
   -t "$IMAGE_NAME" \
   --name "$SANDBOX_NAME" \
-  claude "$PROJECT_DIR"
+  claude "$PROJECT_DIR" ${EXTRA_MOUNTS[@]+"${EXTRA_MOUNTS[@]}"}

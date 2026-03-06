@@ -81,6 +81,10 @@ For detailed analysis of the sandbox networking, see:
 - [NETWORK-NOTES.md](NETWORK-NOTES.md) — architecture and what works vs. what doesn't
 - [BUG-REPORT.md](BUG-REPORT.md) — reproduction steps and workaround details
 
+## Git Worktree Support
+
+When launched from a git worktree, `sandbox/run.sh` automatically detects the worktree and mounts the common git directory as a read-only [additional workspace](https://docs.docker.com/ai/sandboxes/workflows/#multiple-workspaces). This allows git commands to work normally inside the sandbox.
+
 ## Auth Persistence
 
 - Auth is stored inside the sandbox VM at `~/.claude` and persists across `docker sandbox run` calls
