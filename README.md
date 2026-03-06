@@ -36,7 +36,7 @@ bash lima/stop.sh              # stop
 
 ### 3. [Docker Sandbox](sandbox/) — Docker Desktop AI Sandbox with MITM proxy
 
-Claude runs inside a Docker Desktop AI Sandbox — a lightweight microVM managed by Docker Desktop. Network is controlled via a MITM proxy with hostname-based rules. Note: Docker builds inside the sandbox cannot make outbound connections (see [BUG-REPORT.md](sandbox/BUG-REPORT.md)).
+Claude runs inside a Docker Desktop AI Sandbox — a lightweight microVM managed by Docker Desktop. Network is controlled via a MITM proxy with hostname-based rules. Docker builds work via a proxy workaround that injects the MITM CA cert into the build context.
 
 ```bash
 ./sandbox/run.sh               # create + launch sandbox
@@ -49,7 +49,7 @@ Claude runs inside a Docker Desktop AI Sandbox — a lightweight microVM managed
 |--------|-----------------|---------|----------------|
 | Isolation | Privileged container | Full VM (hypervisor) | MicroVM (Docker Desktop) |
 | Network control | iptables + ipset | iptables + ipset | MITM proxy |
-| Docker builds inside | Yes | Yes | No (fundamental limitation) |
+| Docker builds inside | Yes | Yes | Yes (proxy workaround) |
 | Auth persistence | Volume mount `docker/.claude-data/` | Symlink `lima/.claude-data/` | Inside sandbox VM |
 | Status monitoring | None | HTTP server (port 8080) | None |
 | Host requirements | Docker (any OS) | macOS + Lima | Docker Desktop 4.58+ |
@@ -64,7 +64,7 @@ Claude runs inside a Docker Desktop AI Sandbox — a lightweight microVM managed
 
 **Lima VM** provides the strongest isolation via a real hypervisor boundary *and* an iptables firewall inside the VM. The trade-off is macOS-only and slower startup (~5 min first boot). The status server is unique to this approach and useful for monitoring headless Claude sessions. Best for macOS users who want defense-in-depth.
 
-**Docker Sandbox** offers the simplest setup (one command) and a managed security model via Docker Desktop's MITM proxy. The trade-off is significant: Docker builds inside the sandbox cannot make outbound connections, so `docker compose up --build` doesn't work for any Dockerfile with `RUN apt-get`, `RUN npm install`, etc. Best for workloads that don't need Docker builds inside the container, or if you only need pre-built images.
+**Docker Sandbox** offers the simplest setup (one command) and a managed security model via Docker Desktop's MITM proxy. Docker builds work via a proxy workaround: `sandbox/test.sh` injects the MITM proxy's CA cert into the build context so HTTPS connections in `RUN` steps succeed. Best for teams already using Docker Desktop who want managed isolation with minimal configuration.
 
 ## Shared Infrastructure
 

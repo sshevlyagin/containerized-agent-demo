@@ -2,13 +2,13 @@
 #
 # Runs the full integration test inside the Docker sandbox.
 #
-# Because Docker build RUN steps have no outbound network inside
-# AI Sandboxes (see BUG-REPORT.md), this script runs the app
-# natively on the sandbox VM and uses Docker only for infrastructure.
+# Uses docker compose up --build with proxy CA cert handling.
+# The sandbox's MITM proxy intercepts HTTPS, so Docker build steps
+# need the proxy's CA cert to validate connections.
 #
-# 1. Starts postgres + localstack via docker compose
-# 2. Installs deps, builds, migrates, and starts the app on the host
-# 3. Runs the integration test script
+# 1. Copies the proxy CA cert into the build context
+# 2. Creates a compose override to clear proxy env vars for running containers
+# 3. Runs docker compose up --build --abort-on-container-exit
 # 4. Cleans up
 #
 set -euo pipefail
@@ -16,50 +16,45 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_DIR"
 
-APP_PID=""
 cleanup() {
   echo ""
   echo "Cleaning up ..."
-  [[ -n "$APP_PID" ]] && kill "$APP_PID" 2>/dev/null || true
-  docker compose -f docker-compose.infra.yml down -v 2>/dev/null || true
+  docker compose down -v 2>/dev/null || true
+  # Restore empty placeholder certs
+  : > "$PROJECT_DIR/proxy-ca.crt"
+  : > "$PROJECT_DIR/test/proxy-ca.crt"
+  # Remove compose override
+  rm -f "$PROJECT_DIR/docker-compose.override.yml"
 }
 trap cleanup EXIT
 
-# --- Start infrastructure ---
+# --- Copy real proxy CA cert into build context ---
+PROXY_CA="/usr/local/share/ca-certificates/proxy-ca.crt"
+if [ -f "$PROXY_CA" ] && [ -s "$PROXY_CA" ]; then
+  echo "Copying proxy CA cert into build context ..."
+  cp "$PROXY_CA" "$PROJECT_DIR/proxy-ca.crt"
+  cp "$PROXY_CA" "$PROJECT_DIR/test/proxy-ca.crt"
+else
+  echo "WARNING: No proxy CA cert found at $PROXY_CA — builds may fail if behind MITM proxy"
+fi
 
-echo "Starting postgres and localstack ..."
-docker compose -f docker-compose.infra.yml up -d --wait
+# --- Create compose override to clear proxy env for running containers ---
+# Inter-container traffic goes over the Docker bridge, not through the proxy.
+cat > "$PROJECT_DIR/docker-compose.override.yml" <<'EOF'
+services:
+  order-service:
+    environment:
+      - http_proxy=
+      - https_proxy=
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+  test-executor:
+    environment:
+      - http_proxy=
+      - https_proxy=
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+EOF
 
-# --- Environment ---
-
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/orders"
-export SQS_ENDPOINT="http://localhost:4566"
-export SQS_QUEUE_URL="http://localhost:4566/000000000000/orders"
-export AWS_REGION="us-east-1"
-export AWS_ACCESS_KEY_ID="test"
-export AWS_SECRET_ACCESS_KEY="test"
-export PORT="3000"
-
-# --- Install, build, migrate ---
-
-rm -rf node_modules
-pnpm install
-pnpm prisma generate
-pnpm build
-
-# Apply migrations directly via psql inside the postgres container
-POSTGRES_CONTAINER=$(docker compose -f docker-compose.infra.yml ps -q postgres | head -1)
-echo "Applying database migrations via psql ..."
-for migration_sql in prisma/migrations/*/migration.sql; do
-  echo "  -> $migration_sql"
-  docker exec -i "$POSTGRES_CONTAINER" psql -U postgres -d orders < "$migration_sql"
-done
-
-node dist/index.js &
-APP_PID=$!
-
-# --- Run tests ---
-
-ORDER_SERVICE_URL="http://localhost:3000" \
-SQS_ENDPOINT="http://localhost:4566" \
-  bash test/test-executor.sh
+echo "Running docker compose up --build ..."
+docker compose up --build --abort-on-container-exit --exit-code-from test-executor

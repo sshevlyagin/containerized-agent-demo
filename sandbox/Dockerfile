@@ -16,3 +16,14 @@ RUN ARCH=$(uname -m) \
     && rm -rf /tmp/awscliv2.zip /tmp/aws
 RUN npm install -g pnpm@9.15.4
 USER agent
+RUN mkdir -p ~/.docker && cat > ~/.docker/config.json <<'EOF'
+{
+  "proxies": {
+    "default": {
+      "httpProxy": "http://host.docker.internal:3128",
+      "httpsProxy": "http://host.docker.internal:3128",
+      "noProxy": "localhost,127.0.0.1,::1"
+    }
+  }
+}
+EOF

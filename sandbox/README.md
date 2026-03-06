@@ -40,8 +40,8 @@ Auth is persisted in the sandbox VM so you only need to log in once.
 ## What Claude Can Do Inside the Sandbox
 
 - Edit source files (changes sync back to the host)
-- Run `bash sandbox/test.sh` to run the integration test suite
-- Run `docker compose -f docker-compose.infra.yml up -d --wait` for infrastructure
+- Run `bash sandbox/test.sh` to run the full integration test suite via `docker compose up --build`
+- Run Docker builds and compose stacks (proxy CA cert is injected automatically)
 - Run `pnpm install`, `pnpm build`, `pnpm start` natively on the sandbox VM
 
 ## Sending Prompts to the Sandbox
@@ -67,13 +67,13 @@ The MITM proxy blocks all traffic by default. Allowed hosts:
 
 View network logs: `docker sandbox network log claude-order-service`
 
-## Docker-in-Docker Limitations
+## Docker Builds Inside the Sandbox
 
-Docker build `RUN` steps inside the sandbox have **no outbound network access**. Only image pulls (`FROM`) work. This means `docker compose up --build` does not work for Dockerfiles that install packages.
+Docker build `RUN` steps inside the sandbox go through Docker Desktop's MITM proxy. The `sandbox/Dockerfile` configures Docker to route through the proxy, and `sandbox/test.sh` injects the proxy's CA cert into the build context so HTTPS connections succeed.
 
-**Workaround:** Run the app natively on the sandbox VM and use Docker only for infrastructure (postgres, localstack). See `sandbox/test.sh` for the full pattern.
+This means `docker compose up --build` works — `sandbox/test.sh` handles the proxy cert injection and cleanup automatically.
 
-For detailed analysis, see:
+For detailed analysis of the sandbox networking, see:
 - [NETWORK-NOTES.md](NETWORK-NOTES.md) — architecture and what works vs. what doesn't
 - [BUG-REPORT.md](BUG-REPORT.md) — reproduction steps and workaround details
 
