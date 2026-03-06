@@ -78,6 +78,16 @@ exit
 bash docker/stop.sh
 ```
 
+## Git Worktree Support
+
+`docker/start.sh` automatically detects git worktrees. When `.git` is a file (worktree) instead of a directory, the script resolves the common git directory and mounts it read-only so that `git status`, `git log`, and other git commands work inside the container.
+
+```bash
+git worktree add /tmp/test-worktree consolidated
+cd /tmp/test-worktree
+bash docker/start.sh    # automatically mounts the parent .git dir
+```
+
 ## Teardown
 
 ```bash

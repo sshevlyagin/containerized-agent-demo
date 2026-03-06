@@ -6,6 +6,18 @@ PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 mkdir -p "$PROJECT_DIR/docker/.claude-data"
 
+# Detect git worktree — if .git is a file, resolve the common git dir and mount it
+EXTRA_MOUNTS=()
+if [ -f "$PROJECT_DIR/.git" ]; then
+  GIT_DIR=$(sed 's/^gitdir: //' "$PROJECT_DIR/.git")
+  GIT_COMMON_DIR=$(cd "$GIT_DIR" && git rev-parse --git-common-dir 2>/dev/null) || true
+  if [ -n "$GIT_COMMON_DIR" ] && [ -d "$GIT_COMMON_DIR" ]; then
+    GIT_COMMON_DIR=$(cd "$GIT_DIR" && cd "$GIT_COMMON_DIR" && pwd)
+    echo "Detected git worktree, mounting $GIT_COMMON_DIR (read-only)"
+    EXTRA_MOUNTS+=(-v "$GIT_COMMON_DIR:$GIT_COMMON_DIR:ro")
+  fi
+fi
+
 # Check if container already exists
 if docker container inspect "$CONTAINER_NAME" &>/dev/null; then
   STATE=$(docker container inspect -f '{{.State.Status}}' "$CONTAINER_NAME")
@@ -28,6 +40,7 @@ else
     -v "$PROJECT_DIR:/workspace" \
     -v "$PROJECT_DIR/docker/.claude-data:/home/agent/.claude" \
     -v claude-docker-agent-dind:/var/lib/docker \
+    "${EXTRA_MOUNTS[@]}" \
     ${ANTHROPIC_API_KEY:+-e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"} \
     claude-docker-agent
 fi
