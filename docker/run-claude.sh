@@ -11,7 +11,7 @@ if ! docker container inspect -f '{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/nu
 fi
 
 # Check for Claude auth credentials
-if ! docker exec "$CONTAINER_NAME" test -d /root/.claude; then
+if ! docker exec -u agent "$CONTAINER_NAME" test -d /home/agent/.claude; then
   echo "WARNING: No Claude credentials found."
   echo "Run 'bash docker/shell.sh' then 'claude login' to authenticate."
   exit 1
@@ -19,8 +19,8 @@ fi
 
 if [ $# -eq 0 ]; then
   # Headed mode (interactive)
-  docker exec -it -w /workspace "$CONTAINER_NAME" claude
+  docker exec -it -u agent -w /workspace "$CONTAINER_NAME" claude
 else
   # Headless mode
-  docker exec -it -w /workspace "$CONTAINER_NAME" claude --dangerously-skip-permissions -p "$*"
+  docker exec -it -u agent -w /workspace "$CONTAINER_NAME" claude --dangerously-skip-permissions -p "$*"
 fi

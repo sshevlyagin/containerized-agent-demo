@@ -30,9 +30,16 @@ RUN ARCH=$(uname -m) \
     && /tmp/aws/install \
     && rm -rf /tmp/aws /tmp/awscliv2.zip
 
-# Claude Code CLI
+# Create non-root agent user (Claude refuses --dangerously-skip-permissions as root)
+RUN useradd -m -s /bin/bash agent \
+    && usermod -aG docker agent \
+    && echo "agent ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Claude Code CLI (install as agent user)
+USER agent
 RUN curl -fsSL https://claude.ai/install.sh | bash
-ENV PATH="/root/.local/bin:${PATH}"
+ENV PATH="/home/agent/.local/bin:${PATH}"
+USER root
 
 # Copy scripts into image
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

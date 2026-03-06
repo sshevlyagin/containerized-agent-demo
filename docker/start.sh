@@ -26,7 +26,7 @@ else
     --name "$CONTAINER_NAME" \
     --privileged \
     -v "$PROJECT_DIR:/workspace" \
-    -v "$PROJECT_DIR/docker/.claude-data:/root/.claude" \
+    -v "$PROJECT_DIR/docker/.claude-data:/home/agent/.claude" \
     -v claude-docker-agent-dind:/var/lib/docker \
     ${ANTHROPIC_API_KEY:+-e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"} \
     claude-docker-agent

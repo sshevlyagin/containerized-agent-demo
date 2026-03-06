@@ -60,7 +60,8 @@ Private networks (10/8, 172.16/12, 192.168/16) are always allowed for Docker bri
 - **Firewall scope**: Only the OUTPUT chain is modified. Docker's own FORWARD/NAT chains are untouched, so inner container networking works normally.
 - **Storage**: Inner Docker uses a named volume (`claude-docker-agent-dind`) for `/var/lib/docker` to avoid overlay-in-overlay issues. Remove with `docker volume rm claude-docker-agent-dind` to reclaim space.
 - **DNS**: Inner containers use Docker's embedded DNS. The outer firewall allows all DNS traffic (port 53).
-- **Auth persistence**: Claude credentials are stored in `docker/.claude-data/` (git-ignored) via a volume mount to `/root/.claude`.
+- **Non-root user**: Claude runs as the `agent` user (not root) so `--dangerously-skip-permissions` works. The entrypoint runs as root for dockerd/iptables, but shell and Claude sessions exec as `agent`. The agent user has passwordless sudo and is in the `docker` group.
+- **Auth persistence**: Claude credentials are stored in `docker/.claude-data/` (git-ignored) via a volume mount to `/home/agent/.claude`.
 
 ## Verification
 
