@@ -1,0 +1,263 @@
+# Lima VM definition for running Claude Code in an isolated environment.
+# Based on the official docker-rootful template with added dev tools and firewall.
+#
+# Usage (via start.sh):
+#   bash lima/start.sh
+#
+# The project directory is mounted writable via --mount in start.sh.
+
+vmType: vz
+rosetta:
+  enabled: true
+  binfmt: true
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/noble/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+  - location: "https://cloud-images.ubuntu.com/releases/noble/release/ubuntu-24.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+
+cpus: 4
+memory: 8GiB
+disk: 50GiB
+
+mountType: virtiofs
+mounts:
+  - location: "/tmp/lima"
+    writable: true
+
+# containerd is managed by Docker, not by Lima
+containerd:
+  system: false
+  user: false
+
+env:
+  ANTHROPIC_API_KEY: ""
+
+provision:
+  # 1. Host resolution for Docker
+  - mode: system
+    script: |
+      #!/bin/sh
+      sed -i 's/host.lima.internal.*/host.lima.internal host.docker.internal/' /etc/hosts
+
+  # 2. Docker Engine — install via get.docker.com
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      command -v docker >/dev/null 2>&1 && exit 0
+      if [ ! -e /etc/systemd/system/docker.socket.d/override.conf ]; then
+        mkdir -p /etc/systemd/system/docker.socket.d
+        cat <<-EOF >/etc/systemd/system/docker.socket.d/override.conf
+        [Socket]
+        SocketUser={{.User}}
+      EOF
+      fi
+      export DEBIAN_FRONTEND=noninteractive
+      curl -fsSL https://get.docker.com | sh
+
+  # 3. Dev tools — Node.js 22, pnpm, Claude Code, git, jq, ipset
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      export DEBIAN_FRONTEND=noninteractive
+
+      # NodeSource setup for Node.js 22
+      if ! command -v node >/dev/null 2>&1 || ! node --version | grep -q "v22"; then
+        curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+        apt-get install -y nodejs
+      fi
+
+      # Enable corepack and install pnpm
+      corepack enable
+      corepack prepare pnpm@latest --activate || true
+
+      # Install utilities
+      apt-get install -y git jq ipset iptables curl
+
+  # 3b. Claude Code — native installer (must run as user, not root)
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      export PATH="$HOME/.claude/local/bin:$PATH"
+      if ! command -v claude >/dev/null 2>&1; then
+        curl -fsSL https://claude.ai/install.sh | bash
+      fi
+
+  # 4. Firewall — iptables + ipset domain allowlisting
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+
+      ALLOWED_DOMAINS="
+        api.anthropic.com
+        statsig.anthropic.com
+        sentry.io
+        console.anthropic.com
+        auth.anthropic.com
+        registry.npmjs.org
+        registry-1.docker.io
+        auth.docker.io
+        production.cloudflare.docker.com
+        docker.io
+        archive.ubuntu.com
+        security.ubuntu.com
+        ports.ubuntu.com
+        github.com
+        objects.githubusercontent.com
+        claude.ai
+        storage.googleapis.com
+        deb.nodesource.com
+        download.docker.com
+      "
+
+      # Create the ipset for allowed IPs (hash:ip for individual addresses)
+      ipset create allowed_ips hash:ip -exist
+      ipset flush allowed_ips
+
+      # Resolve all allowed domains and add their IPs
+      for domain in $ALLOWED_DOMAINS; do
+        ips=$(dig +short "$domain" A 2>/dev/null | grep -E '^[0-9]+\.' || true)
+        for ip in $ips; do
+          ipset add allowed_ips "$ip" -exist
+        done
+      done
+
+      # Flush existing OUTPUT rules to make this idempotent
+      iptables -F OUTPUT
+
+      # iptables OUTPUT chain rules (in order)
+      iptables -A OUTPUT -o lo -j ACCEPT
+      iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+      iptables -A OUTPUT -d 192.168.5.3 -p udp --dport 53 -j ACCEPT
+      iptables -A OUTPUT -d 192.168.5.3 -p tcp --dport 53 -j ACCEPT
+      iptables -A OUTPUT -d 10.0.0.0/8 -j ACCEPT
+      iptables -A OUTPUT -d 172.16.0.0/12 -j ACCEPT
+      iptables -A OUTPUT -d 192.168.0.0/16 -j ACCEPT
+      iptables -A OUTPUT -p udp --dport 67:68 -j ACCEPT
+      iptables -A OUTPUT -m set --match-set allowed_ips dst -j ACCEPT
+      iptables -A OUTPUT -j DROP
+
+      # --- Cron job to refresh IPs every 10 minutes ---
+      cat >/usr/local/bin/refresh-allowed-ips.sh <<'REFRESH'
+      #!/bin/bash
+      set -e
+
+      ALLOWED_DOMAINS="
+        api.anthropic.com
+        statsig.anthropic.com
+        sentry.io
+        console.anthropic.com
+        auth.anthropic.com
+        registry.npmjs.org
+        registry-1.docker.io
+        auth.docker.io
+        production.cloudflare.docker.com
+        docker.io
+        archive.ubuntu.com
+        security.ubuntu.com
+        ports.ubuntu.com
+        github.com
+        objects.githubusercontent.com
+        claude.ai
+        storage.googleapis.com
+        deb.nodesource.com
+        download.docker.com
+      "
+
+      ipset create allowed_ips_new hash:ip -exist
+      ipset flush allowed_ips_new
+
+      for domain in $ALLOWED_DOMAINS; do
+        ips=$(dig +short "$domain" A 2>/dev/null | grep -E '^[0-9]+\.' || true)
+        for ip in $ips; do
+          ipset add allowed_ips_new "$ip" -exist
+        done
+      done
+
+      ipset swap allowed_ips_new allowed_ips
+      ipset destroy allowed_ips_new
+      REFRESH
+      chmod +x /usr/local/bin/refresh-allowed-ips.sh
+
+      CRON_LINE="*/10 * * * * /usr/local/bin/refresh-allowed-ips.sh >> /var/log/refresh-ips.log 2>&1"
+      (crontab -l 2>/dev/null | grep -v refresh-allowed-ips; echo "$CRON_LINE") | crontab -
+
+  # 5. Claude auth persistence — symlink ~/.claude to project-local volume
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+
+      # Find the project directory by locating our yaml in writable virtiofs mounts
+      PROJECT_DIR=""
+      while IFS= read -r mount_point; do
+        if [ -f "${mount_point}/lima/claude-agent.yaml" ] && [ -w "${mount_point}/lima" ]; then
+          PROJECT_DIR="$mount_point"
+          break
+        fi
+      done < <(awk '$3 == "virtiofs" {print $2}' /proc/mounts)
+
+      if [ -z "$PROJECT_DIR" ]; then
+        echo "Warning: Could not find writable project mount, skipping Claude data symlink"
+        exit 0
+      fi
+
+      CLAUDE_DATA="${PROJECT_DIR}/lima/.claude-data"
+      mkdir -p "$CLAUDE_DATA"
+
+      if [ -L "$HOME/.claude" ]; then
+        current=$(readlink "$HOME/.claude")
+        if [ "$current" != "$CLAUDE_DATA" ]; then
+          ln -sfn "$CLAUDE_DATA" "$HOME/.claude"
+        fi
+      elif [ -d "$HOME/.claude" ]; then
+        cp -a "$HOME/.claude/." "$CLAUDE_DATA/" 2>/dev/null || true
+        rm -rf "$HOME/.claude"
+        ln -sf "$CLAUDE_DATA" "$HOME/.claude"
+      else
+        ln -sf "$CLAUDE_DATA" "$HOME/.claude"
+      fi
+
+      echo "Claude data symlinked: ~/.claude -> $CLAUDE_DATA"
+
+probes:
+  - script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      if ! timeout 30s bash -c "until command -v docker >/dev/null 2>&1; do sleep 3; done"; then
+        echo >&2 "docker is not installed yet"
+        exit 1
+      fi
+      if ! timeout 30s bash -c "until pgrep dockerd; do sleep 3; done"; then
+        echo >&2 "dockerd is not running"
+        exit 1
+      fi
+    hint: See "/var/log/cloud-init-output.log" in the guest
+
+  - script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      if ! timeout 30s bash -c "until [ -x \"\$HOME/.local/bin/claude\" ]; do sleep 3; done"; then
+        echo >&2 "Claude CLI is not installed"
+        exit 1
+      fi
+    hint: See "/var/log/cloud-init-output.log" in the guest
+
+hostResolver:
+  hosts:
+    host.docker.internal: host.lima.internal
+
+portForwards:
+  - guestSocket: "/var/run/docker.sock"
+    hostSocket: "{{.Dir}}/sock/docker.sock"
+  - guestPort: 3000
+    hostPort: 3000
+  - guestPort: 5432
+    hostPort: 5432
+  - guestPort: 4566
+    hostPort: 4566
