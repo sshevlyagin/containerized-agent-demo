@@ -25,13 +25,13 @@ if [ -f "$PROJECT_DIR/.git" ]; then
   if [ -n "$GIT_COMMON_DIR" ] && [ -d "$GIT_COMMON_DIR" ]; then
     GIT_COMMON_DIR=$(cd "$GIT_DIR" && cd "$GIT_COMMON_DIR" && pwd)
     echo "Detected git worktree, mounting $GIT_COMMON_DIR (read-only)"
-    MOUNT_FLAGS+=("--mount=${GIT_COMMON_DIR}:ro")
+    MOUNT_FLAGS+=("--mount=${GIT_COMMON_DIR}")
   fi
 fi
 
 # Check if instance already exists by looking for its directory
 if [ -d "$HOME/.lima/$INSTANCE_NAME" ]; then
-  STATUS=$(limactl list --json 2>/dev/null | jq -r --arg name "$INSTANCE_NAME" '.[] | select(.name == $name) | .status // empty' 2>/dev/null || echo "")
+  STATUS=$(limactl list --json 2>/dev/null | jq -r --arg name "$INSTANCE_NAME" 'select(.name == $name) | .status // empty' 2>/dev/null || echo "")
   if [ "$STATUS" = "Running" ]; then
     echo "Instance '$INSTANCE_NAME' is already running."
     exit 0

@@ -20,10 +20,10 @@ Runs Claude Code inside a **Docker Desktop AI Sandbox** — a lightweight microV
 ```bash
 # Terminal 1 — launch the sandbox (interactive, blocks)
 # First run will walk you through Claude login/onboarding
-./sandbox/run.sh
+bash sandbox/start.sh
 
 # Terminal 2 — apply network restrictions
-./sandbox/network-policy.sh
+bash sandbox/network-policy.sh
 ```
 
 Auth is persisted in the sandbox VM so you only need to log in once.
@@ -32,8 +32,11 @@ Auth is persisted in the sandbox VM so you only need to log in once.
 
 | Script | Description |
 |--------|-------------|
-| `sandbox/run.sh` | Build template + create/launch sandbox |
-| `sandbox/run.sh --rebuild` | Rebuild from scratch (loses auth) |
+| `sandbox/start.sh` | Build template + create/launch sandbox |
+| `sandbox/start.sh --rebuild` | Rebuild from scratch (loses auth) |
+| `sandbox/stop.sh` | Remove the sandbox |
+| `sandbox/shell.sh` | Interactive bash shell inside the sandbox |
+| `sandbox/run-claude.sh` | Interactive Claude (no args) or headless mode (with prompt) |
 | `sandbox/network-policy.sh` | Apply deny-by-default network policy |
 | `sandbox/test.sh` | Run integration tests inside the sandbox |
 
@@ -44,14 +47,15 @@ Auth is persisted in the sandbox VM so you only need to log in once.
 - Run Docker builds and compose stacks (proxy CA cert is injected automatically)
 - Run `pnpm install`, `pnpm build`, `pnpm start` natively on the sandbox VM
 
-## Sending Prompts to the Sandbox
+## Headless Mode
 
-From the host, use `docker sandbox exec` to run Claude non-interactively:
+Run Claude non-interactively from the host:
 
 ```bash
-docker sandbox exec -w /path/to/project claude-order-service \
-  claude --dangerously-skip-permissions -p 'Your prompt here'
+bash sandbox/run-claude.sh 'Fix the failing test in orders.ts'
 ```
+
+This uses `--dangerously-skip-permissions` to allow Claude to execute without interactive approval.
 
 ## Network Policy
 
@@ -59,11 +63,13 @@ The MITM proxy blocks all traffic by default. Allowed hosts:
 
 | Host Pattern | Reason |
 |---|---|
-| `*.anthropic.com`, `platform.claude.com` | Claude API |
+| `*.anthropic.com`, `platform.claude.com`, `claude.ai` | Claude API + auth |
+| `sentry.io` | Error tracking |
 | `*.npmjs.org` | npm registry |
 | `*.nodesource.com` | Node.js packages |
 | `*.docker.io`, `*.docker.com`, `*.cloudflarestorage.com` | Docker Hub |
 | `github.com`, `*.github.com`, `*.githubusercontent.com` | Git operations |
+| `storage.googleapis.com` | Cloud storage |
 | `deb.debian.org` | Debian packages (Docker builds) |
 | `cdn.amazonlinux.com` | Amazon Linux packages (Docker builds) |
 | `host.docker.internal` | Docker proxy for builds |
@@ -71,25 +77,44 @@ The MITM proxy blocks all traffic by default. Allowed hosts:
 
 View network logs: `docker sandbox network log claude-order-service`
 
-## Docker Builds Inside the Sandbox
+## Networking Architecture
 
-Docker build `RUN` steps inside the sandbox go through Docker Desktop's MITM proxy. The `sandbox/Dockerfile` configures Docker to route through the proxy, and `sandbox/test.sh` injects the proxy's CA cert into the build context so HTTPS connections succeed.
+Docker AI Sandboxes have two distinct network contexts:
+
+1. **Sandbox VM** — the outer VM where Claude Code and native processes (pnpm, curl, node) run
+2. **Docker-in-Docker containers** — containers launched by the inner Docker daemon (via `docker compose`, `docker run`, etc.)
+
+`docker sandbox network proxy` applies a MITM proxy at the VM level. Native processes on the VM go through the proxy and respect the network policy. However, Docker build `RUN` steps inside the sandbox don't automatically inherit proxy configuration.
+
+### What works without extra configuration
+
+- `pnpm install`, `pnpm build`, `node dist/index.js` (native on VM)
+- `curl` to allowed external hosts (native on VM)
+- `docker pull` (image pulls from registries)
+- `docker compose up` with pre-built images
+- Inter-container networking (e.g. `order-service` → `postgres`)
+
+### Docker builds (requires proxy workaround)
+
+Docker build `RUN` steps (e.g. `apt-get update`, `npm install`) cannot make outbound connections by default. The sandbox proxy only routes registry traffic for image pulls — build containers use a separate bridge network with no outbound access.
+
+**Workaround** (handled automatically by `sandbox/test.sh`):
+
+1. The `sandbox/Dockerfile` configures `~/.docker/config.json` with proxy settings pointing to `host.docker.internal:3128`
+2. `sandbox/test.sh` copies the sandbox MITM proxy's CA cert into the build context
+3. A `docker-compose.override.yml` injects `HTTP_PROXY`/`HTTPS_PROXY` as build args and clears them for running containers (so they use Docker compose internal networking)
 
 This means `docker compose up --build` works — `sandbox/test.sh` handles the proxy cert injection and cleanup automatically.
 
-For detailed analysis of the sandbox networking, see:
-- [NETWORK-NOTES.md](NETWORK-NOTES.md) — architecture and what works vs. what doesn't
-- [BUG-REPORT.md](BUG-REPORT.md) — reproduction steps and workaround details
-
 ## Git Worktree Support
 
-When launched from a git worktree, `sandbox/run.sh` automatically detects the worktree and mounts the common git directory as a read-only [additional workspace](https://docs.docker.com/ai/sandboxes/workflows/#multiple-workspaces). This allows git commands to work normally inside the sandbox.
+When launched from a git worktree, `sandbox/start.sh` automatically detects the worktree and mounts the common git directory as a read-only [additional workspace](https://docs.docker.com/ai/sandboxes/workflows/#multiple-workspaces). This allows git commands to work normally inside the sandbox.
 
 ## Auth Persistence
 
 - Auth is stored inside the sandbox VM at `~/.claude` and persists across `docker sandbox run` calls
 - `docker sandbox run` does NOT support `-v` volume mounts — there is no way to mount an external volume for auth
-- **Don't `docker sandbox rm`** unless you want to lose the login. Use `./sandbox/run.sh --rebuild` only when the template changes
+- **Don't `docker sandbox rm`** unless you want to lose the login. Use `bash sandbox/start.sh --rebuild` only when the template changes
 
 ## Platform Notes
 
@@ -101,5 +126,5 @@ When launched from a git worktree, `sandbox/run.sh` automatically detects the wo
 ## Teardown
 
 ```bash
-docker sandbox rm claude-order-service
+bash sandbox/stop.sh
 ```

@@ -96,9 +96,11 @@ provision:
       ALLOWED_DOMAINS="
         api.anthropic.com
         statsig.anthropic.com
-        sentry.io
         console.anthropic.com
         auth.anthropic.com
+        platform.claude.com
+        claude.ai
+        sentry.io
         registry.npmjs.org
         registry-1.docker.io
         auth.docker.io
@@ -107,12 +109,11 @@ provision:
         archive.ubuntu.com
         security.ubuntu.com
         ports.ubuntu.com
-        github.com
-        objects.githubusercontent.com
-        claude.ai
-        storage.googleapis.com
         deb.nodesource.com
         download.docker.com
+        github.com
+        objects.githubusercontent.com
+        storage.googleapis.com
         r2.cloudflarestorage.com
       "
 
@@ -151,9 +152,11 @@ provision:
       ALLOWED_DOMAINS="
         api.anthropic.com
         statsig.anthropic.com
-        sentry.io
         console.anthropic.com
         auth.anthropic.com
+        platform.claude.com
+        claude.ai
+        sentry.io
         registry.npmjs.org
         registry-1.docker.io
         auth.docker.io
@@ -162,12 +165,11 @@ provision:
         archive.ubuntu.com
         security.ubuntu.com
         ports.ubuntu.com
-        github.com
-        objects.githubusercontent.com
-        claude.ai
-        storage.googleapis.com
         deb.nodesource.com
         download.docker.com
+        github.com
+        objects.githubusercontent.com
+        storage.googleapis.com
         r2.cloudflarestorage.com
       "
 

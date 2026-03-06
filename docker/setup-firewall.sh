@@ -58,7 +58,7 @@ iptables -F OUTPUT
 iptables -A OUTPUT -o lo -j ACCEPT
 
 # 2. Accept established/related connections
-iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
 # 3. Accept DNS (udp + tcp port 53)
 iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
@@ -132,6 +132,6 @@ chmod +x "$CRON_SCRIPT"
 
 # Install cron entry
 CRON_LINE="*/10 * * * * /usr/local/bin/refresh-firewall-ips.sh"
-(crontab -l 2>/dev/null | grep -v refresh-firewall-ips.sh; echo "$CRON_LINE") | crontab -
+echo "$CRON_LINE" | crontab -
 
 echo "Cron job installed for IP refresh every 10 minutes."

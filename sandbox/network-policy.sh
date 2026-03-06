@@ -10,6 +10,8 @@ docker sandbox network proxy "$SANDBOX_NAME" \
   --policy deny \
   --allow-host "*.anthropic.com" \
   --allow-host "platform.claude.com" \
+  --allow-host "claude.ai" \
+  --allow-host "sentry.io" \
   --allow-host "*.npmjs.org" \
   --allow-host "*.nodesource.com" \
   --allow-host "*.docker.io" \
@@ -18,6 +20,7 @@ docker sandbox network proxy "$SANDBOX_NAME" \
   --allow-host "github.com" \
   --allow-host "*.github.com" \
   --allow-host "*.githubusercontent.com" \
+  --allow-host "storage.googleapis.com" \
   --allow-host "deb.debian.org" \
   --allow-host "cdn.amazonlinux.com" \
   --allow-host "host.docker.internal" \
@@ -25,13 +28,15 @@ docker sandbox network proxy "$SANDBOX_NAME" \
 
 echo ""
 echo "Network policy applied. Only the following hosts are allowed:"
-echo "  *.anthropic.com, platform.claude.com   — Claude API"
+echo "  *.anthropic.com, platform.claude.com,  — Claude API + auth"
+echo "  claude.ai, sentry.io"
 echo "  *.npmjs.org                            — npm registry"
 echo "  *.nodesource.com                       — Node.js packages"
 echo "  *.docker.io, *.docker.com,             — Docker Hub"
 echo "  *.cloudflarestorage.com"
 echo "  github.com, *.github.com,              — Git operations"
 echo "  *.githubusercontent.com"
+echo "  storage.googleapis.com                 — Cloud storage"
 echo "  deb.debian.org                         — Debian packages (Docker builds)"
 echo "  cdn.amazonlinux.com                    — Amazon Linux packages (Docker builds)"
 echo "  host.docker.internal                   — Docker proxy for builds"

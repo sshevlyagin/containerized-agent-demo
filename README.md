@@ -14,6 +14,15 @@ docker compose down -v       # teardown
 
 ## Three Isolation Approaches
 
+All three approaches share the same script interface:
+
+| Script | Description |
+|--------|-------------|
+| `start.sh` | Build and start the isolated environment |
+| `stop.sh` | Stop/remove the environment |
+| `shell.sh` | Interactive bash shell |
+| `run-claude.sh` | Interactive Claude (no args) or headless with `--dangerously-skip-permissions` (with prompt) |
+
 ### 1. [Docker-in-Docker](docker/) — Privileged container with iptables firewall
 
 Claude runs inside a privileged Docker container that has its own Docker daemon. The full `docker compose up --build` workflow works inside the container. Network is locked down via iptables + ipset allowlisting individual domain IPs.
@@ -21,6 +30,7 @@ Claude runs inside a privileged Docker container that has its own Docker daemon.
 ```bash
 bash docker/start.sh          # build + start
 bash docker/run-claude.sh     # interactive Claude
+bash docker/run-claude.sh "fix the failing test"  # headless
 bash docker/stop.sh           # stop
 ```
 
@@ -31,6 +41,7 @@ Claude runs inside a Lima VM (macOS hypervisor). Like Docker-in-Docker, but with
 ```bash
 bash lima/start.sh             # create/start VM (~5 min first time)
 bash lima/run-claude.sh        # interactive Claude
+bash lima/run-claude.sh "fix the failing test"  # headless
 bash lima/stop.sh              # stop
 ```
 
@@ -39,8 +50,10 @@ bash lima/stop.sh              # stop
 Claude runs inside a Docker Desktop AI Sandbox — a lightweight microVM managed by Docker Desktop. Network is controlled via a MITM proxy with hostname-based rules. Docker builds work via a proxy workaround that injects the MITM CA cert into the build context.
 
 ```bash
-./sandbox/run.sh               # create + launch sandbox
-./sandbox/network-policy.sh    # apply network restrictions (separate terminal)
+bash sandbox/start.sh          # create + launch sandbox
+bash sandbox/network-policy.sh # apply network restrictions (separate terminal)
+bash sandbox/run-claude.sh "fix the failing test"  # headless
+bash sandbox/stop.sh           # remove sandbox
 ```
 
 ## Comparison
@@ -55,9 +68,8 @@ Claude runs inside a Docker Desktop AI Sandbox — a lightweight microVM managed
 | Host requirements | Docker (any OS) | macOS + Lima | Docker Desktop 4.58+ |
 | License | Open source | Open source (CNCF) | Docker Desktop license |
 | Security model | `--privileged` + firewall | VM boundary + firewall | VM boundary + proxy |
-| Headless flag | `--dangerously-skip-permissions` | `--allowedTools` | `--dangerously-skip-permissions` |
+| Headless flag | `--dangerously-skip-permissions` | `--dangerously-skip-permissions` | `--dangerously-skip-permissions` |
 | Git worktrees | Yes (auto-detected) | Yes (auto-detected) | Yes (auto-detected) |
-| Allowed domains | 21 (individual) | 18 (individual) | 14 (wildcard patterns) |
 
 ## Trade-offs
 
@@ -71,20 +83,6 @@ Claude runs inside a Docker Desktop AI Sandbox — a lightweight microVM managed
 
 All approaches use the same underlying order-service application and can share:
 
-- **`docker-compose.infra.yml`** — Postgres + LocalStack only (no app container), for local development or sandbox use
 - **`scripts/create-queue.sh`** — Create the SQS queue in LocalStack
 - **`scripts/seed-messages.sh`** — Send sample order messages to the queue
 - **`.env.example`** — Default environment variable template
-
-```bash
-# Start just the infrastructure
-docker compose -f docker-compose.infra.yml up -d --wait
-./scripts/create-queue.sh
-
-# Run the app natively
-cp .env.example .env
-pnpm install
-pnpm prisma generate
-pnpm migrate:deploy
-pnpm dev
-```

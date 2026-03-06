@@ -12,7 +12,7 @@ fi
 
 # Check for Claude auth credentials
 if ! docker exec -u agent "$CONTAINER_NAME" sh -c \
-    'test -f /home/agent/.claude/credentials.json || test -d /home/agent/.claude/.credentials'; then
+    'test -f /home/agent/.claude/credentials.json || test -f /home/agent/.claude/.credentials.json || test -d /home/agent/.claude/.credentials || test -n "${ANTHROPIC_API_KEY:-}"'; then
   echo "WARNING: No Claude credentials found."
   echo "Run 'bash docker/shell.sh' then 'claude login' to authenticate."
   exit 1
@@ -23,5 +23,5 @@ if [ $# -eq 0 ]; then
   docker exec -it -u agent -w /workspace "$CONTAINER_NAME" claude
 else
   # Headless mode
-  docker exec -it -u agent -w /workspace "$CONTAINER_NAME" claude --dangerously-skip-permissions -p "$@"
+  docker exec -u agent -w /workspace "$CONTAINER_NAME" claude --dangerously-skip-permissions -p "$@"
 fi

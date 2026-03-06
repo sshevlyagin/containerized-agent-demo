@@ -6,7 +6,9 @@ PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Check if Claude is authenticated (login data persists in lima/.claude-data/)
 if ! limactl shell "$INSTANCE_NAME" test -f "\$HOME/.claude/credentials.json" 2>/dev/null &&
-   ! limactl shell "$INSTANCE_NAME" test -d "\$HOME/.claude/.credentials" 2>/dev/null; then
+   ! limactl shell "$INSTANCE_NAME" test -f "\$HOME/.claude/.credentials.json" 2>/dev/null &&
+   ! limactl shell "$INSTANCE_NAME" test -d "\$HOME/.claude/.credentials" 2>/dev/null &&
+   ! limactl shell "$INSTANCE_NAME" bash -c 'test -n "${ANTHROPIC_API_KEY:-}"' 2>/dev/null; then
   echo "No Claude login found. Run 'claude login' first:"
   echo "  bash lima/shell.sh"
   echo "  claude login"
@@ -22,5 +24,5 @@ if [ $# -eq 0 ]; then
 else
   # Headless mode — pass all arguments as a prompt
   echo "Running Claude in headless mode..."
-  limactl shell "$INSTANCE_NAME" bash -c 'cd "$1" && exec claude -p "$2"' -- "$PROJECT_DIR" "$*"
+  limactl shell "$INSTANCE_NAME" bash -c 'cd "$1" && exec claude --dangerously-skip-permissions -p "$2"' -- "$PROJECT_DIR" "$*"
 fi

@@ -27,6 +27,9 @@ echo "==> Starting cron..."
 cron
 
 # Fix ownership so agent user can access workspace and Claude data
+# Mark /workspace as safe for git (ownership differs in container)
+git config --global --add safe.directory /workspace
+
 echo "==> Setting up agent user permissions..."
 chown -R agent:agent /home/agent/.claude 2>/dev/null || true
 chown agent:agent /workspace 2>/dev/null || true

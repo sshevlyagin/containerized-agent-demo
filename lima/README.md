@@ -37,7 +37,7 @@ bash lima/stop.sh         # Stop the VM
 | `lima/start.sh` | Create or start the `claude-agent` VM |
 | `lima/stop.sh` | Stop the VM |
 | `lima/shell.sh` | Open a shell inside the VM |
-| `lima/run-claude.sh` | No args = interactive Claude; with args = headless `claude -p "..."` |
+| `lima/run-claude.sh` | No args = interactive Claude; with args = headless with `--dangerously-skip-permissions` |
 
 ## Headless Mode with Status Tracking
 
@@ -70,8 +70,7 @@ Status is written to `lima/.task-status.json` in the shared project mount, so th
 
 The VM firewall allows outbound traffic only to:
 - Private networks (Docker bridge, Lima host)
-- Anthropic API + OAuth (`api.anthropic.com`, `console.anthropic.com`, `auth.anthropic.com`, `statsig.anthropic.com`, `sentry.io`)
-- `platform.claude.com`, `claude.ai`
+- Anthropic API + OAuth (`api.anthropic.com`, `console.anthropic.com`, `auth.anthropic.com`, `statsig.anthropic.com`, `platform.claude.com`, `claude.ai`, `sentry.io`)
 - Package registries (npm, Docker Hub, apt, NodeSource)
 - GitHub (`github.com`, `objects.githubusercontent.com`)
 - `storage.googleapis.com`
