@@ -2,3 +2,6 @@ node_modules/
 dist/
 .env
 *.log
+docker/.claude-data/
+lima/.claude-data/
+lima/.task-status.json
