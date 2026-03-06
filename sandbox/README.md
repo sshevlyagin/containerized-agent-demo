@@ -64,6 +64,10 @@ The MITM proxy blocks all traffic by default. Allowed hosts:
 | `*.nodesource.com` | Node.js packages |
 | `*.docker.io`, `*.docker.com`, `*.cloudflarestorage.com` | Docker Hub |
 | `github.com`, `*.github.com`, `*.githubusercontent.com` | Git operations |
+| `deb.debian.org` | Debian packages (Docker builds) |
+| `cdn.amazonlinux.com` | Amazon Linux packages (Docker builds) |
+| `host.docker.internal` | Docker proxy for builds |
+| `*.prisma.sh` | Prisma engine binaries |
 
 View network logs: `docker sandbox network log claude-order-service`
 

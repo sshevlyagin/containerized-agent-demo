@@ -113,6 +113,7 @@ provision:
         storage.googleapis.com
         deb.nodesource.com
         download.docker.com
+        r2.cloudflarestorage.com
       "
 
       # Create the ipset for allowed IPs (hash:ip for individual addresses)
@@ -167,6 +168,7 @@ provision:
         storage.googleapis.com
         deb.nodesource.com
         download.docker.com
+        r2.cloudflarestorage.com
       "
 
       ipset create allowed_ips_new hash:ip -exist

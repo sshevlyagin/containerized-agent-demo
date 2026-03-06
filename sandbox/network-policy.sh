@@ -17,7 +17,11 @@ docker sandbox network proxy "$SANDBOX_NAME" \
   --allow-host "*.cloudflarestorage.com" \
   --allow-host "github.com" \
   --allow-host "*.github.com" \
-  --allow-host "*.githubusercontent.com"
+  --allow-host "*.githubusercontent.com" \
+  --allow-host "deb.debian.org" \
+  --allow-host "cdn.amazonlinux.com" \
+  --allow-host "host.docker.internal" \
+  --allow-host "*.prisma.sh"
 
 echo ""
 echo "Network policy applied. Only the following hosts are allowed:"
@@ -28,5 +32,9 @@ echo "  *.docker.io, *.docker.com,             — Docker Hub"
 echo "  *.cloudflarestorage.com"
 echo "  github.com, *.github.com,              — Git operations"
 echo "  *.githubusercontent.com"
+echo "  deb.debian.org                         — Debian packages (Docker builds)"
+echo "  cdn.amazonlinux.com                    — Amazon Linux packages (Docker builds)"
+echo "  host.docker.internal                   — Docker proxy for builds"
+echo "  *.prisma.sh                            — Prisma engine binaries"
 echo ""
 echo "View network logs: docker sandbox network log $SANDBOX_NAME"

@@ -2,12 +2,8 @@
 #
 # Runs the full integration test inside the Docker sandbox.
 #
-# Uses docker compose up --build with proxy CA cert handling.
-# The sandbox's MITM proxy intercepts HTTPS, so Docker build steps
-# need the proxy's CA cert to validate connections.
-#
-# 1. Copies the proxy CA cert into the build context
-# 2. Creates a compose override to clear proxy env vars for running containers
+# 1. Copies the sandbox proxy CA cert into the build context
+# 2. Creates a compose override with build proxy args + cleared runtime proxy vars
 # 3. Runs docker compose up --build --abort-on-container-exit
 # 4. Cleans up
 #
@@ -19,42 +15,54 @@ cd "$PROJECT_DIR"
 cleanup() {
   echo ""
   echo "Cleaning up ..."
+  # Restore empty proxy cert placeholders
+  : > proxy-ca.crt
+  : > test/proxy-ca.crt
+  # Remove the sandbox compose override
+  rm -f docker-compose.override.yml
   docker compose down -v 2>/dev/null || true
-  # Restore empty placeholder certs
-  : > "$PROJECT_DIR/proxy-ca.crt"
-  : > "$PROJECT_DIR/test/proxy-ca.crt"
-  # Remove compose override
-  rm -f "$PROJECT_DIR/docker-compose.override.yml"
 }
 trap cleanup EXIT
 
-# --- Copy real proxy CA cert into build context ---
-PROXY_CA="/usr/local/share/ca-certificates/proxy-ca.crt"
-if [ -f "$PROXY_CA" ] && [ -s "$PROXY_CA" ]; then
-  echo "Copying proxy CA cert into build context ..."
-  cp "$PROXY_CA" "$PROJECT_DIR/proxy-ca.crt"
-  cp "$PROXY_CA" "$PROJECT_DIR/test/proxy-ca.crt"
-else
-  echo "WARNING: No proxy CA cert found at $PROXY_CA — builds may fail if behind MITM proxy"
-fi
+# --- Proxy setup for Docker-in-Docker builds ---
+# The sandbox VM routes traffic through a MITM proxy. Build containers
+# need proxy env vars to reach the internet (HTTP_PROXY/HTTPS_PROXY as
+# build args). Running containers communicate on the Docker compose
+# network and must NOT be proxied (cleared via environment).
+PROXY_CERT="/usr/local/share/ca-certificates/proxy-ca.crt"
+if [ -f "$PROXY_CERT" ] && [ -s "$PROXY_CERT" ]; then
+  cp "$PROXY_CERT" proxy-ca.crt
+  cp "$PROXY_CERT" test/proxy-ca.crt
 
-# --- Create compose override to clear proxy env for running containers ---
-# Inter-container traffic goes over the Docker bridge, not through the proxy.
-cat > "$PROJECT_DIR/docker-compose.override.yml" <<'EOF'
+  cat > docker-compose.override.yml <<'OVERRIDE'
 services:
   order-service:
+    build:
+      args:
+        HTTP_PROXY: http://host.docker.internal:3128
+        HTTPS_PROXY: http://host.docker.internal:3128
     environment:
-      - http_proxy=
-      - https_proxy=
-      - HTTP_PROXY=
-      - HTTPS_PROXY=
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      http_proxy: ""
+      https_proxy: ""
   test-executor:
+    build:
+      args:
+        HTTP_PROXY: http://host.docker.internal:3128
+        HTTPS_PROXY: http://host.docker.internal:3128
     environment:
-      - http_proxy=
-      - https_proxy=
-      - HTTP_PROXY=
-      - HTTPS_PROXY=
-EOF
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      http_proxy: ""
+      https_proxy: ""
+OVERRIDE
 
-echo "Running docker compose up --build ..."
+  echo "Configured proxy CA cert and compose override for Docker builds"
+else
+  echo "WARNING: No proxy CA cert found at $PROXY_CERT — builds may fail if behind MITM proxy"
+fi
+
+# --- Build and run ---
+echo "Building and starting all services ..."
 docker compose up --build --abort-on-container-exit --exit-code-from test-executor
