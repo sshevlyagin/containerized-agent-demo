@@ -29,7 +29,7 @@ cron
 # Fix ownership so agent user can access workspace and Claude data
 echo "==> Setting up agent user permissions..."
 chown -R agent:agent /home/agent/.claude 2>/dev/null || true
-chown agent:agent /workspace
+chown agent:agent /workspace 2>/dev/null || true
 
 echo "==> Container ready. Use docker/shell.sh or docker/run-claude.sh to interact."
 exec sleep infinity

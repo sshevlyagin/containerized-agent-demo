@@ -17,7 +17,7 @@ cleanup() {
   echo "Cleaning up ..."
   # Restore empty proxy cert placeholders
   : > proxy-ca.crt
-  : > test/proxy-ca.crt
+  [ -d test ] && : > test/proxy-ca.crt
   # Remove the sandbox compose override
   rm -f docker-compose.override.yml
   docker compose down -v 2>/dev/null || true
@@ -32,6 +32,7 @@ trap cleanup EXIT
 PROXY_CERT="/usr/local/share/ca-certificates/proxy-ca.crt"
 if [ -f "$PROXY_CERT" ] && [ -s "$PROXY_CERT" ]; then
   cp "$PROXY_CERT" proxy-ca.crt
+  mkdir -p test
   cp "$PROXY_CERT" test/proxy-ca.crt
 
   cat > docker-compose.override.yml <<'OVERRIDE'

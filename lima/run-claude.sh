@@ -22,5 +22,5 @@ if [ $# -eq 0 ]; then
 else
   # Headless mode — pass all arguments as a prompt
   echo "Running Claude in headless mode..."
-  limactl shell "$INSTANCE_NAME" bash -c "cd '$PROJECT_DIR' && exec claude -p '$*'"
+  limactl shell "$INSTANCE_NAME" bash -c 'cd "$1" && exec claude -p "$2"' -- "$PROJECT_DIR" "$*"
 fi

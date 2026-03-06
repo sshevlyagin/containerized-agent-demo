@@ -78,7 +78,7 @@ iptables -A OUTPUT -m set --match-set allowed_ips dst -j ACCEPT
 # 7. Drop everything else
 iptables -A OUTPUT -j DROP
 
-echo "Firewall configured. $(ipset list allowed_ips | grep -c 'Members:' || true) entries in allowed_ips."
+echo "Firewall configured. $(ipset list allowed_ips | grep -c '^[0-9]' || echo 0) entries in allowed_ips."
 echo "Allowed domains: ${#ALLOWED_DOMAINS[@]}"
 
 # --- Install cron job for IP refresh (every 10 minutes) ---
@@ -131,6 +131,7 @@ REFRESH_EOF
 chmod +x "$CRON_SCRIPT"
 
 # Install cron entry
-echo "*/10 * * * * /usr/local/bin/refresh-firewall-ips.sh" | crontab -
+CRON_LINE="*/10 * * * * /usr/local/bin/refresh-firewall-ips.sh"
+(crontab -l 2>/dev/null | grep -v refresh-firewall-ips.sh; echo "$CRON_LINE") | crontab -
 
 echo "Cron job installed for IP refresh every 10 minutes."
