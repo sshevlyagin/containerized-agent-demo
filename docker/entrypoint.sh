@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "==> Starting dockerd..."
+dockerd &>/var/log/dockerd.log &
+
+# Wait for Docker to be ready (up to 30s)
+timeout=30
+elapsed=0
+while ! docker info &>/dev/null; do
+  if [ "$elapsed" -ge "$timeout" ]; then
+    echo "ERROR: dockerd failed to start within ${timeout}s"
+    cat /var/log/dockerd.log
+    exit 1
+  fi
+  sleep 1
+  elapsed=$((elapsed + 1))
+done
+echo "==> dockerd ready (${elapsed}s)"
+
+# Set up firewall after dockerd so Docker's iptables chains exist first
+echo "==> Setting up firewall..."
+/usr/local/bin/setup-firewall.sh
+
+# Start cron for IP refresh
+echo "==> Starting cron..."
+cron
+
+echo "==> Container ready. Use docker/shell.sh or docker/run-claude.sh to interact."
+exec sleep infinity
