@@ -5,9 +5,9 @@ INSTANCE_NAME="claude-agent"
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Check if Claude is authenticated (login data persists in lima/.claude-data/)
-if ! limactl shell "$INSTANCE_NAME" test -f "\$HOME/.claude/credentials.json" 2>/dev/null &&
-   ! limactl shell "$INSTANCE_NAME" test -f "\$HOME/.claude/.credentials.json" 2>/dev/null &&
-   ! limactl shell "$INSTANCE_NAME" test -d "\$HOME/.claude/.credentials" 2>/dev/null &&
+if ! limactl shell "$INSTANCE_NAME" bash -c 'test -f "$HOME/.claude/credentials.json"' 2>/dev/null &&
+   ! limactl shell "$INSTANCE_NAME" bash -c 'test -f "$HOME/.claude/.credentials.json"' 2>/dev/null &&
+   ! limactl shell "$INSTANCE_NAME" bash -c 'test -d "$HOME/.claude/.credentials"' 2>/dev/null &&
    ! limactl shell "$INSTANCE_NAME" bash -c 'test -n "${ANTHROPIC_API_KEY:-}"' 2>/dev/null; then
   echo "No Claude login found. Run 'claude login' first:"
   echo "  bash lima/shell.sh"

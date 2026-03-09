@@ -29,6 +29,7 @@ Claude runs inside a privileged Docker container that has its own Docker daemon.
 
 ```bash
 bash docker/start.sh          # build + start
+bash docker/shell.sh           # interactive bash shell
 bash docker/run-claude.sh     # interactive Claude
 bash docker/run-claude.sh "fix the failing test"  # headless
 bash docker/stop.sh           # stop
@@ -40,6 +41,7 @@ Claude runs inside a Lima VM (macOS hypervisor). Like Docker-in-Docker, but with
 
 ```bash
 bash lima/start.sh             # create/start VM (~5 min first time)
+bash lima/shell.sh              # interactive bash shell
 bash lima/run-claude.sh        # interactive Claude
 bash lima/run-claude.sh "fix the failing test"  # headless
 bash lima/stop.sh              # stop
@@ -52,6 +54,7 @@ Claude runs inside a Docker Desktop AI Sandbox — a lightweight microVM managed
 ```bash
 bash sandbox/start.sh          # create + launch sandbox
 bash sandbox/network-policy.sh # apply network restrictions (separate terminal)
+bash sandbox/shell.sh           # interactive bash shell
 bash sandbox/run-claude.sh "fix the failing test"  # headless
 bash sandbox/stop.sh           # remove sandbox
 ```

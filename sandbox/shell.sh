@@ -9,4 +9,4 @@ if ! docker sandbox ls 2>/dev/null | grep -q "$SANDBOX_NAME"; then
   exit 1
 fi
 
-docker sandbox exec "$SANDBOX_NAME" bash
+docker sandbox exec -it "$SANDBOX_NAME" bash

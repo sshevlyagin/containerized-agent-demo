@@ -1,8 +1,8 @@
 FROM amazon/aws-cli:latest
 
-# Proxy CA cert (empty placeholder — sandbox/test.sh replaces with real cert at runtime)
-# Must be trusted BEFORE yum so HTTPS through MITM proxy works
-COPY proxy-ca.crt /etc/pki/ca-trust/source/anchors/proxy-ca.crt
+# When building inside the Docker sandbox, sandbox/test.sh places the MITM
+# proxy CA cert here. The glob makes COPY a no-op when the file is absent.
+COPY proxy-ca.cr[t] /etc/pki/ca-trust/source/anchors/
 RUN update-ca-trust
 
 RUN yum install -y --allowerasing jq curl
