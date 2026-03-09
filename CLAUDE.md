@@ -48,7 +48,7 @@ Requires a running Postgres and LocalStack (see `.env` for connection defaults).
 Three approaches for running Claude Code in isolated environments with network restrictions:
 
 - **[Docker-in-Docker](docker/README.md)** — Privileged container with iptables firewall. Full `docker compose up --build` works inside.
-- **[Lima VM](lima/README.md)** — macOS hypervisor VM with iptables firewall. Strongest isolation, includes status monitoring server.
+- **[Lima VM](lima/README.md)** — macOS hypervisor VM with iptables firewall. Strongest isolation.
 - **[Docker Sandbox](sandbox/README.md)** — Docker Desktop AI Sandbox with MITM proxy. Simplest setup, Docker builds work via proxy workaround.
 
 See the [root README](README.md) for a full comparison table and trade-offs.

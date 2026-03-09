@@ -1,6 +1,6 @@
 # Lima VM Isolation
 
-Runs Claude Code inside an isolated **Lima VM** (macOS hypervisor) with Docker, restricted network access, and a status monitoring server for headless operation.
+Runs Claude Code inside an isolated **Lima VM** (macOS hypervisor) with Docker and restricted network access.
 
 ## How It Works
 
@@ -8,7 +8,6 @@ Runs Claude Code inside an isolated **Lima VM** (macOS hypervisor) with Docker, 
 2. The host project directory is mounted writable via virtiofs
 3. iptables + ipset restrict outbound traffic to an allowlist of domains
 4. Claude credentials are symlinked to `lima/.claude-data/` for persistence across VM restarts
-5. An optional status server enables monitoring headless Claude sessions
 
 ## Prerequisites
 
@@ -39,33 +38,6 @@ bash lima/stop.sh         # Stop the VM
 | `lima/shell.sh` | Open a shell inside the VM |
 | `lima/run-claude.sh` | No args = interactive Claude; with args = headless with `--dangerously-skip-permissions` |
 
-## Headless Mode with Status Tracking
-
-Run Claude as an autonomous agent with a status endpoint to monitor progress:
-
-```bash
-# 1. Start the status server in the VM (serves GET/POST on :8080/status)
-limactl shell claude-agent bash -c \
-  "cd /path/to/project && nohup node lima/status-server.cjs > /tmp/status-server.log 2>&1 &"
-
-# 2. Run Claude headless with a task
-limactl shell claude-agent bash -c \
-  "cd /path/to/project && claude --allowedTools 'Bash(*)' 'Read(*)' 'Write(*)' 'Edit(*)' 'Glob(*)' 'Grep(*)' \
-   -p 'Your task prompt here. Post status updates using:
-   curl -s -X POST http://localhost:8080/status -H \"Content-Type: application/json\" \
-   -d \"{\\\"status\\\":\\\"in_progress\\\",\\\"step\\\":{\\\"name\\\":\\\"STEP\\\",\\\"detail\\\":\\\"INFO\\\"}}\"'"
-
-# 3. Monitor from the host (pick one):
-watch -n5 cat lima/.task-status.json                                          # file on shared mount
-limactl shell claude-agent bash -c "curl -s http://localhost:8080/status"     # HTTP endpoint
-```
-
-The status server (`lima/status-server.cjs`) provides:
-- **GET /status** — returns current status JSON
-- **POST /status** — merge an update; include a `step` object to append to the steps array
-
-Status is written to `lima/.task-status.json` in the shared project mount, so the host can read it directly without SSH.
-
 ## Network Restrictions
 
 The VM firewall allows outbound traffic only to:
@@ -87,10 +59,10 @@ All other outbound traffic is dropped. IPs are refreshed via cron every 10 minut
 | `limactl list --json` with no instances | Returns empty stdout (not `[]`), exits 0. Check `~/.lima/$NAME` dir instead |
 | `--workdir` flag on `limactl shell` | Doesn't work reliably. Use `bash -c "cd /path && exec ..."` instead |
 | `set -u` with empty bash arrays | `"${ARR[@]}"` errors if array is empty. Use explicit if/else branches instead |
-| `package.json` has `"type": "module"` | Scripts using `require()` must use `.cjs` extension |
+| `package.json` has `"type": "module"` | Node.js scripts using `require()` must use `.cjs` extension |
 | Docker Hub CDN IPs not in firewall | Claude may need to add IPs at runtime. The ipset cron refresh helps but CDN IPs rotate |
 | VM I/O errors under heavy Docker builds | Ensure enough disk space. The VM disk is 50 GiB; Docker images + layers can fill it fast |
-| `--allowedTools` required for headless | Without it, Claude cannot execute bash commands non-interactively |
+| `--dangerously-skip-permissions` required for headless | Without it, Claude prompts for tool approval interactively |
 
 ## Verification
 

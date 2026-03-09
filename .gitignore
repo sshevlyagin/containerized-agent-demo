@@ -5,6 +5,6 @@ dist/
 .claude/
 docker/.claude-data/
 lima/.claude-data/
-lima/.task-status.json
 proxy-ca.crt
 docker-compose.override.yml
+sessions/

@@ -37,7 +37,7 @@ bash docker/stop.sh           # stop
 
 ### 2. [Lima VM](lima/) — Full VM with iptables firewall
 
-Claude runs inside a Lima VM (macOS hypervisor). Like Docker-in-Docker, but with stronger isolation through a full VM boundary. Includes a status monitoring HTTP server for headless operation.
+Claude runs inside a Lima VM (macOS hypervisor). Like Docker-in-Docker, but with stronger isolation through a full VM boundary.
 
 ```bash
 bash lima/start.sh             # create/start VM (~5 min first time)
@@ -67,25 +67,49 @@ bash sandbox/stop.sh           # remove sandbox
 | Network control | iptables + ipset | iptables + ipset | MITM proxy |
 | Docker builds inside | Yes | Yes | Yes (proxy workaround) |
 | Auth persistence | Volume mount `docker/.claude-data/` | Symlink `lima/.claude-data/` | Inside sandbox VM |
-| Status monitoring | None | HTTP server (port 8080) | None |
+| Session logging | Streaming JSONL + markdown summary | Streaming JSONL + markdown summary | Streaming JSONL + markdown summary |
 | Host requirements | Docker (any OS) | macOS + Lima | Docker Desktop 4.58+ |
 | License | Open source | Open source (CNCF) | Docker Desktop license |
 | Security model | `--privileged` + firewall | VM boundary + firewall | VM boundary + proxy |
-| Headless flag | `--dangerously-skip-permissions` | `--dangerously-skip-permissions` | `--dangerously-skip-permissions` |
 | Git worktrees | Yes (auto-detected) | Yes (auto-detected) | Yes (auto-detected) |
 
 ## Trade-offs
 
 **Docker-in-Docker** is the most portable (runs anywhere Docker runs) and the most capable (full `docker compose up --build` works). The trade-off is security: `--privileged` gives the container full host capabilities, so the iptables firewall is the only barrier. Best for trusted environments where you want full Docker functionality.
 
-**Lima VM** provides the strongest isolation via a real hypervisor boundary *and* an iptables firewall inside the VM. The trade-off is macOS-only and slower startup (~5 min first boot). The status server is unique to this approach and useful for monitoring headless Claude sessions. Best for macOS users who want defense-in-depth.
+**Lima VM** provides the strongest isolation via a real hypervisor boundary *and* an iptables firewall inside the VM. The trade-off is macOS-only and slower startup (~5 min first boot). Best for macOS users who want defense-in-depth.
 
 **Docker Sandbox** offers the simplest setup (one command) and a managed security model via Docker Desktop's MITM proxy. Docker builds work via a proxy workaround: `sandbox/test.sh` injects the MITM proxy's CA cert into the build context so HTTPS connections in `RUN` steps succeed. Best for teams already using Docker Desktop who want managed isolation with minimal configuration.
+
+## Session Logging
+
+All three approaches support real-time session logging in headless mode. When you pass a prompt to `run-claude.sh`, Claude's output is streamed as JSONL and processed on the host:
+
+- **Real-time display** — Tool calls, thinking, and text shown with emoji indicators
+- **Raw JSONL capture** — Full session saved to `sessions/raw-<timestamp>.jsonl`
+- **Markdown summary** — Auto-generated `sessions/raw-<timestamp>.md` with token counts, cost estimates, tool usage, and conversation timeline
+
+```bash
+# Headless mode automatically enables session logging
+bash docker/run-claude.sh "fix the failing test"
+
+# View the generated summary
+cat sessions/raw-*.md
+
+# Or generate a summary manually
+python3 common/session-to-md.py sessions/raw-20260309-143022.jsonl
+```
+
+Interactive (headed) mode is unchanged — no streaming, no logging.
+
+Requires `jq` on the host for real-time display parsing.
 
 ## Shared Infrastructure
 
 All approaches use the same underlying order-service application and can share:
 
+- **`common/stream-claude.sh`** — Shared bash library for session streaming and logging
+- **`common/session-to-md.py`** — JSONL-to-Markdown session summary generator
 - **`scripts/create-queue.sh`** — Create the SQS queue in LocalStack
 - **`scripts/seed-messages.sh`** — Send sample order messages to the queue
 - **`.env.example`** — Default environment variable template
