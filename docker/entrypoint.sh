@@ -2,6 +2,14 @@
 set -euo pipefail
 
 echo "==> Starting dockerd..."
+# Kill any leftover dockerd from a previous container run and clean up
+if pidof dockerd &>/dev/null; then
+  echo "==> Stopping existing dockerd..."
+  kill "$(pidof dockerd)" 2>/dev/null || true
+  sleep 2
+  kill -9 "$(pidof dockerd)" 2>/dev/null || true
+fi
+rm -f /var/run/docker.pid /var/run/docker/containerd/containerd.pid
 dockerd &>/var/log/dockerd.log &
 
 # Wait for Docker to be ready (up to 30s)

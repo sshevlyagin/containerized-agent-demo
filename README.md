@@ -75,7 +75,11 @@ bash sandbox/stop.sh           # remove sandbox
 
 ## Trade-offs
 
-**Docker-in-Docker** is the most portable (runs anywhere Docker runs) and the most capable (full `docker compose up --build` works). The trade-off is security: `--privileged` gives the container full host capabilities, so the iptables firewall is the only barrier. Best for trusted environments where you want full Docker functionality.
+**Docker-in-Docker** is the most portable (runs anywhere Docker runs) and the most capable (full `docker compose up --build` works). The trade-off is security: `--privileged` gives the container full host capabilities, so the iptables firewall is the only barrier. Known shortcomings:
+- **Firewall bypass** — `--privileged` grants `CAP_NET_ADMIN`, so the agent can `iptables -F` to flush the firewall rules meant to restrict it.
+- **Host VM disk access** — `--privileged` exposes block devices (e.g. `/dev/vda1`), allowing the agent to read/write Docker Desktop VM's disk, including volumes belonging to other containers.
+
+Best for trusted environments where you want full Docker functionality.
 
 **Lima VM** provides the strongest isolation via a real hypervisor boundary *and* an iptables firewall inside the VM. The trade-off is macOS-only and slower startup (~5 min first boot). Best for macOS users who want defense-in-depth.
 
