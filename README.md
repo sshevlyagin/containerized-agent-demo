@@ -83,7 +83,12 @@ Best for trusted environments where you want full Docker functionality.
 
 **Lima VM** provides the strongest isolation via a real hypervisor boundary *and* an iptables firewall inside the VM. The trade-off is macOS-only and slower startup (~5 min first boot). Best for macOS users who want defense-in-depth.
 
-**Docker Sandbox** offers the simplest setup (one command) and a managed security model via Docker Desktop's MITM proxy. Docker builds work via a proxy workaround: `sandbox/test.sh` injects the MITM proxy's CA cert into the build context so HTTPS connections in `RUN` steps succeed. Best for teams already using Docker Desktop who want managed isolation with minimal configuration.
+**Lima VM** and **Docker Sandbox** both mount the host project directory into the guest. This means host-side `node_modules` (with macOS-native binaries) get overlaid into the Linux environment, causing binary incompatibilities. The workaround is to `rm -rf node_modules` and reinstall inside the guest before building.
+
+**Docker Sandbox** offers the simplest setup (one command) and a managed security model via Docker Desktop's MITM proxy. Docker builds work via a proxy workaround: `sandbox/test.sh` injects the MITM proxy's CA cert into the build context so HTTPS connections in `RUN` steps succeed. Known shortcomings:
+- **4 GB memory limit** — Sandboxes are [hard-capped at 4 GB RAM](https://github.com/docker/desktop-feedback/issues/121) with no way to increase it, which can be tight for large builds or memory-hungry workloads.
+
+Best for teams already using Docker Desktop who want managed isolation with minimal configuration.
 
 ## Session Logging
 
