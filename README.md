@@ -1,6 +1,6 @@
 # Containerized Claude Code Agent Demo
 
-Three approaches to running [Claude Code](https://docs.anthropic.com/en/docs/claude-code) in isolated containers with network restrictions, each with different trade-offs for security, portability, and capability.
+Three approaches to running [Claude Code](https://docs.anthropic.com/en/docs/claude-code) in isolated containers with network restrictions, each with different trade-offs for security, portability, and capability. This is inspired by [Living Dagenerously With Claude](https://simonwillison.net/2025/Oct/22/living-dangerously-with-claude/) and trying to manage the letha trifecta of access to private data, ability to externally communicate, and exposure to untrusted content.
 
 ## The Demo Workload
 
@@ -75,7 +75,7 @@ bash sandbox/stop.sh           # remove sandbox
 
 ## Trade-offs
 
-**Docker-in-Docker** is the most portable (runs anywhere Docker runs) and the most capable (full `docker compose up --build` works). The trade-off is security: `--privileged` gives the container full host capabilities, so the iptables firewall is the only barrier. Known shortcomings:
+**Docker-in-Docker** is the most portable (runs anywhere Docker runs). The trade-off is security: `--privileged` gives the container full host capabilities, so the iptables firewall is only a soft barrier. Known shortcomings:
 - **Firewall bypass** — `--privileged` grants `CAP_NET_ADMIN`, so the agent can `iptables -F` to flush the firewall rules meant to restrict it.
 - **Host VM disk access** — `--privileged` exposes block devices (e.g. `/dev/vda1`), allowing the agent to read/write Docker Desktop VM's disk, including volumes belonging to other containers.
 
@@ -83,10 +83,11 @@ Best for trusted environments where you want full Docker functionality.
 
 **Lima VM** provides the strongest isolation via a real hypervisor boundary *and* an iptables firewall inside the VM. The trade-off is macOS-only and slower startup (~5 min first boot). Best for macOS users who want defense-in-depth.
 
-**Lima VM** and **Docker Sandbox** both mount the host project directory into the guest. This means host-side `node_modules` (with macOS-native binaries) get overlaid into the Linux environment, causing binary incompatibilities. The workaround is to `rm -rf node_modules` and reinstall inside the guest before building.
+**Lima VM** and **Docker Sandbox** both mount the host project directory into the guest. This means host-side `node_modules` (with macOS-native binaries) get overlaid into the Linux environment, causing binary incompatibilities. The workaround is to `rm -rf node_modules` and reinstall inside the guest before building or synchronize via git instead of mounting a directory.
 
 **Docker Sandbox** offers the simplest setup (one command) and a managed security model via Docker Desktop's MITM proxy. Docker builds work via a proxy workaround: `sandbox/test.sh` injects the MITM proxy's CA cert into the build context so HTTPS connections in `RUN` steps succeed. Known shortcomings:
 - **4 GB memory limit** — Sandboxes are [hard-capped at 4 GB RAM](https://github.com/docker/desktop-feedback/issues/121) with no way to increase it, which can be tight for large builds or memory-hungry workloads.
+- **Network Proxy Issue** - Docker Sandbox proxy [prevents docker build from accessing the network](https://github.com/docker/desktop-feedback/issues/165), there's a workaround as documented in the issue but it's brittle.
 
 Best for teams already using Docker Desktop who want managed isolation with minimal configuration.
 
