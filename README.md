@@ -1,6 +1,6 @@
 # Containerized Claude Code Agent Demo
 
-Three approaches to running [Claude Code](https://docs.anthropic.com/en/docs/claude-code) in isolated containers with network restrictions, each with different trade-offs for security, portability, and capability. This is inspired by [Living Dagenerously With Claude](https://simonwillison.net/2025/Oct/22/living-dangerously-with-claude/) and trying to manage the letha trifecta of access to private data, ability to externally communicate, and exposure to untrusted content.
+Three approaches to running [Claude Code](https://docs.anthropic.com/en/docs/claude-code) in isolated containers with network restrictions, each with different trade-offs for security, portability, and capability. This is inspired by [Living Dagenerously With Claude](https://simonwillison.net/2025/Oct/22/living-dangerously-with-claude/) and trying to manage the lethal trifecta of access to private data, ability to externally communicate, and exposure to untrusted content.
 
 ## The Demo Workload
 
